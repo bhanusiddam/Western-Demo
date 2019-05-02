@@ -1,0 +1,62 @@
+node {
+try {
+   stage('Checkout'){
+       git url: 'https://github.com/user/spring-boot-websocket-chat-demo.git'
+   }
+}catch (exe) {
+echo " caught error "
+}
+   stage('Package'){
+     def mvnHome =  tool name: 'maven-3.5.4', type: 'maven' 
+     def mvnCMD = "${mvnHome}/bin/mvn"
+     sh "${mvnCMD} clean package test  checkstyle:checkstyle"
+   }
+      stage('Code Quility'){
+       checkstyle canComputeNew: false, defaultEncoding: '', healthy: '', pattern: '', unHealthy: ''
+   }
+   stage('Checkmarx Scan'){
+	   step([$class: 'CxScanBuilder', avoidDuplicateProjectScans: true, comment: '', credentialsId: '', excludeFolders: '', excludeOpenSourceFolders: '', exclusionsSetting: 'global', failBuildOnNewResults: false, failBuildOnNewSeverity: 'HIGH', filterPattern: '''!**/_cvs/**/*, !**/.svn/**/*,   !**/.hg/**/*,   !**/.git/**/*,  !**/.bzr/**/*, !**/bin/**/*,
+!**/obj/**/*,  !**/backup/**/*, !**/.idea/**/*, !**/*.DS_Store, !**/*.ipr,     !**/*.iws,
+!**/*.bak,     !**/*.tmp,       !**/*.aac,      !**/*.aif,      !**/*.iff,     !**/*.m3u, !**/*.mid, !**/*.mp3,
+!**/*.mpa,     !**/*.ra,        !**/*.wav,      !**/*.wma,      !**/*.3g2,     !**/*.3gp, !**/*.asf, !**/*.asx,
+!**/*.avi,     !**/*.flv,       !**/*.mov,      !**/*.mp4,      !**/*.mpg,     !**/*.rm,  !**/*.swf, !**/*.vob,
+!**/*.wmv,     !**/*.bmp,       !**/*.gif,      !**/*.jpg,      !**/*.png,     !**/*.psd, !**/*.tif, !**/*.swf,
+!**/*.jar,     !**/*.zip,       !**/*.rar,      !**/*.exe,      !**/*.dll,     !**/*.pdb, !**/*.7z,  !**/*.gz,
+!**/*.tar.gz,  !**/*.tar,       !**/*.gz,       !**/*.ahtm,     !**/*.ahtml,   !**/*.fhtml, !**/*.hdm,
+!**/*.hdml,    !**/*.hsql,      !**/*.ht,       !**/*.hta,      !**/*.htc,     !**/*.htd, !**/*.war, !**/*.ear,
+!**/*.htmls,   !**/*.ihtml,     !**/*.mht,      !**/*.mhtm,     !**/*.mhtml,   !**/*.ssi, !**/*.stm,
+!**/*.stml,    !**/*.ttml,      !**/*.txn,      !**/*.xhtm,     !**/*.xhtml,   !**/*.class, !**/*.iml, !Checkmarx/Reports/*.*''', fullScanCycle: 10, groupId: '6222f119-3105-4627-a009-0b9c12b64afd', includeOpenSourceFolders: '', incremental: true, osaArchiveIncludePatterns: '*.zip, *.war, *.ear, *.tgz', osaEnabled: true, osaInstallBeforeScan: false, password: '{AQAAABAAAAAQ977pBWTE8wZ79yMnKF35GhSpBQLWIe+fkBmBZWpyi8k=}', preset: '36', projectName: 'pipeline', sastEnabled: true, serverUrl: 'https://checkmarx.wuintranet.net/', sourceEncoding: '1', username: '', vulnerabilityThresholdResult: 'FAILURE', waitForResultsEnabled: true])
+   }
+      stage('SonarQ Code Scan'){
+     def mvnHome =  tool name: 'maven-3.5.4', type: 'maven' 
+     def mvnCMD = "${mvnHome}/bin/mvn"
+     sh "${mvnCMD} clean verify sonar:sonar"
+   }
+   stage('Build Docker Image'){
+	 sh 'docker build -t my-app:latest .'
+     sh 'docker tag my-app:latest tcs238-docker-my-app.bintray.io/my-app:latest'
+    }
+   stage('Scan Docker Image'){ 
+       aquaMicroscanner imageName: 'tcs238-docker-my-app.bintray.io/my-app:latest', notCompliesCmd: '', onDisallowed: 'ignore', outputFormat: 'html'
+   }
+      stage('Push Docker Image'){
+     
+        sh 'docker login -u $user -p $Pass tcs238-docker-my-app.bintray.io'
+		sh 'docker push tcs238-docker-my-app.bintray.io/my-app:latest'
+	}
+	 stage('Remove Docker Image'){
+	 sh 'docker rmi -f tcs238-docker-my-app.bintray.io/my-app:latest'
+	 sh 'docker rmi -f my-app:latest'
+	 sh 'docker rmi -f docker.io/anooptcs/tomcat8-jdk8:latest'
+   }
+
+  }
+
+catch (exc) {
+echo " caught error "
+} finally {
+  echo "final block executed" 
+ }
+if (err) {
+     throw err
+ }
